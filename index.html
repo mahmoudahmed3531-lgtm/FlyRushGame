@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Memory Match — Fly Express (Levels)</title>
+<title>Memory Match — Fly Express</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -80,7 +80,6 @@
   .result{margin:12px 0 8px; text-align:center; font-weight:900}
   .result.win{color:var(--ok)} .result.lose{color:var(--bad)}
 
-  /* طبقة البداية/الفوز/إعادة المحاولة */
   #overlay{
     position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.5); backdrop-filter: blur(3px); z-index:30;
   }
@@ -88,21 +87,16 @@
     background:rgba(10,20,28,.96); border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:22px; text-align:center;
     box-shadow:0 24px 50px rgba(0,0,0,.45); width:min(520px,92vw);
   }
-  .opts{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:12px 0}
-  .chip{padding:10px 14px; border-radius:999px; border:1px solid rgba(255,255,255,.15); cursor:pointer}
-  .chip.active{background:#5eead4; color:#003; font-weight:900}
-  .note{color:var(--muted); text-align:center; font-weight:700; margin-top:6px}
   .claim{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:12px}
   .wa{background:#25d366; color:#003; border:none; border-radius:999px; padding:10px 14px; font-weight:900; cursor:pointer}
   .next{background:linear-gradient(90deg,#ffd166,#ff7eb3); color:#003; border:none; border-radius:999px; padding:10px 14px; font-weight:900; cursor:pointer}
-  @media (max-width:520px){ .face{font-size:38px} }
 </style>
 </head>
 <body>
 
 <div class="frame">
   <h1><span class="brand">Fly Express</span> — Memory Match</h1>
-  <div class="sub">**خلّص الأربع مراحل واكسب توصيلة مجانيّة** — طابق الكروت قبل ما الوقت يخلص! كل تطابق +100، خطأ −10.</div>
+  <div class="sub">🎯 خلّص السبع مراحل واكسب توصيلة مجانيّة!</div>
 
   <div class="stats">
     <div class="stat"><div class="v" id="level">1</div><div class="k">المستوى</div></div>
@@ -116,238 +110,116 @@
   <div class="board">
     <div id="grid" class="grid cols4"></div>
     <div id="final" class="result"></div>
-    <div class="actions">
-      <button class="btn secondary" id="infoBtn">إزاي ألعب؟</button>
-      <button class="btn" id="restartBtn" style="display:none">إعادة 🔁</button>
-    </div>
   </div>
-  <div class="note">نصيحة: راقب أماكن الإيموجيز بسرعة، كل ما تغلط أقل — نقاطك أعلى!</div>
+  <div class="note">راقب أماكن الإيموجيز بسرعة — خلّص السبع مراحل تكسب توصيلة مجانية 🚀</div>
 </div>
 
-<!-- شاشة المراحل / الفوز / الإعادة -->
 <div id="overlay">
   <div class="box" id="overlayBox"></div>
 </div>
 
 <script>
-/* ========== إعدادات عامة ========== */
 const LEVELS = [
-  {pairs:6,  time:30,  title:"سهل (6 أزواج)"},
-  {pairs:8,  time:30,  title:"متوسط (8 أزواج)"},
-  {pairs:10, time:40,  title:"صعب (10 أزواج)"},
-  {pairs:12, time:50,  title:"خبير (12 زوج)"}
+  {pairs:6,  time:50},
+  {pairs:8,  time:65},
+  {pairs:10, time:75},
+  {pairs:12, time:85},
+  {pairs:14, time:95},
+  {pairs:16, time:105},
+  {pairs:18, time:115}
 ];
-const ADMIN_PHONE = "201017908076"; // رقم الواتساب للجائزة
-const EMOJIS = ["🌸","💖","🧁","🦋","🍓","🌈","🐱","⭐","🍉","🎀","🧸","☕","🍒","🐼","🌼","📦","💐","🍩","🐰","🫧","🌙","🍪"];
-const POINT_MATCH = 100, POINT_WRONG = -10;
+const ADMIN_PHONE="201017908076";
+const EMOJIS=["🌸","💖","🧁","🦋","🍓","🌈","🐱","⭐","🍉","🎀","🧸","☕","🍒","🐼","🌼","📦","💐","🍩","🐰","🫧","🌙","🍪"];
+const POINT_MATCH=100,POINT_WRONG=-10;
 
-/* ========== DOM ========== */
-const gridEl   = document.querySelector('#grid');
-const scoreEl  = document.querySelector('#score');
-const movesEl  = document.querySelector('#moves');
-const timeEl   = document.querySelector('#time');
-const bestEl   = document.querySelector('#best');
-const finalEl  = document.querySelector('#final');
-const startBtn = document.querySelector('#startBtn');
-const restartBtn = document.querySelector('#restartBtn');
-const infoBtn  = document.querySelector('#infoBtn');
-const overlay  = document.querySelector('#overlay');
-const overlayBox = document.querySelector('#overlayBox');
-const levelEl  = document.querySelector('#level');
+const gridEl=document.querySelector('#grid'),scoreEl=document.querySelector('#score'),movesEl=document.querySelector('#moves'),
+timeEl=document.querySelector('#time'),bestEl=document.querySelector('#best'),finalEl=document.querySelector('#final'),
+startBtn=document.querySelector('#startBtn'),overlay=document.querySelector('#overlay'),overlayBox=document.querySelector('#overlayBox'),levelEl=document.querySelector('#level');
+let best=parseInt(localStorage.getItem('mm_best')||'0');bestEl.textContent=best;
 
-let best = parseInt(localStorage.getItem('mm_best')||'0'); bestEl.textContent = best;
-
-/* ========== صوتيات بسيطة (بعد أول تفاعل) ========== */
-let ctx, AC, outGain;
-function audioInit(){ if(ctx) return; AC = window.AudioContext||window.webkitAudioContext; if(!AC) return;
-  ctx = new AC(); outGain = ctx.createGain(); outGain.gain.value=.15; outGain.connect(ctx.destination);
-}
-function beep(f=800,d=.08,t="triangle"){ if(!ctx) return;
-  const o=ctx.createOscillator(), g=ctx.createGain();
-  o.type=t; o.frequency.value=f; o.connect(g); g.connect(outGain);
-  const s=ctx.currentTime; g.gain.setValueAtTime(.0001,s);
-  g.gain.exponentialRampToValueAtTime(.6,s+.01);
-  g.gain.exponentialRampToValueAtTime(.0001,s+d);
-  o.start(s); o.stop(s+d+.01);
-}
+let ctx,AC,outGain;
+function audioInit(){if(ctx)return;AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;ctx=new AC();outGain=ctx.createGain();outGain.gain.value=.15;outGain.connect(ctx.destination);}
+function beep(f=800,d=.08,t="triangle"){if(!ctx)return;const o=ctx.createOscillator(),g=ctx.createGain();o.type=t;o.frequency.value=f;o.connect(g);g.connect(outGain);const s=ctx.currentTime;g.gain.setValueAtTime(.0001,s);g.gain.exponentialRampToValueAtTime(.6,s+.01);g.gain.exponentialRampToValueAtTime(.0001,s+d);o.start(s);o.stop(s+d+.01);}
 ["pointerdown","touchstart","click"].forEach(e=>addEventListener(e,audioInit,{once:true}));
 
-/* ========== حالة اللعبة ========== */
-let levelIndex = 0;
-let pairsCount = LEVELS[0].pairs, timeTotal = LEVELS[0].time;
-let deck=[], first=null, second=null, lock=false;
-let score=0, moves=0, timeLeft=0, timer=null, matched=0;
+let levelIndex=0,pairsCount,timeTotal,deck=[],first=null,second=null,lock=false,score=0,moves=0,timeLeft=0,timer=null,matched=0;
 
-/* ========== أدوات ========== */
-const shuffle = a => a.sort(()=>Math.random()-0.5);
-function setGridCols(pairs){
-  gridEl.classList.toggle('cols6', pairs>=12);
-  gridEl.classList.toggle('cols5', pairs>=10 && pairs<12);
-  gridEl.classList.toggle('cols4', pairs<10);
-}
-function openOverlay(html){ overlayBox.innerHTML=html; overlay.style.display='grid'; }
-function closeOverlay(){ overlay.style.display='none'; }
+const shuffle=a=>a.sort(()=>Math.random()-0.5);
+function setGridCols(p){gridEl.className='grid';if(p>=16)gridEl.classList.add('cols6');else if(p>=10)gridEl.classList.add('cols5');else gridEl.classList.add('cols4');}
+function openOverlay(h){overlayBox.innerHTML=h;overlay.style.display='grid';}
+function closeOverlay(){overlay.style.display='none';}
+function applyLevel(){const L=LEVELS[levelIndex];pairsCount=L.pairs;timeTotal=L.time;setGridCols(pairsCount);levelEl.textContent=levelIndex+1;}
 
-/* شاشة اختيار المستوى */
-function showLevelPicker(){
-  const chips = LEVELS.map((L,i)=>`
-    <div class="chip ${i===levelIndex?'active':''}" data-i="${i}">${L.title}</div>
-  `).join('');
-  openOverlay(`
-    <div style="font-weight:900;font-size:24px;margin-bottom:6px">اختر مستوى الصعوبة</div>
-    <div class="opts" id="levelChips">${chips}</div>
-    <button class="btn" id="goBtn">ابدأ اللعبة 🚀</button>
-    <div class="note">هتتسجل أعلى نتيجة تلقائيًا على جهازك.</div>
-  `);
-  document.querySelectorAll('#levelChips .chip').forEach(el=>{
-    el.addEventListener('click', ()=>{
-      document.querySelectorAll('#levelChips .chip').forEach(x=>x.classList.remove('active'));
-      el.classList.add('active');
-      levelIndex = +el.dataset.i;
-    });
-  });
-  document.querySelector('#goBtn').addEventListener('click', ()=>{
-    closeOverlay(); applyLevel(); startGame();
-  });
-}
-
-/* شاشة الفوز في مرحلة */
-function showStageWin(){
-  const isLast = levelIndex === LEVELS.length-1;
-  openOverlay(`
-    <div style="font-weight:900;font-size:24px;margin-bottom:8px">${isLast?'🎉 مبروك! خلّصت الأربع مراحل':'تمام! خلّصت المستوى '+(levelIndex+1)}</div>
-    <div class="note">${isLast ? 'كسبت توصيلة مجانيّة من Fly Express' : 'جاهز تكمل للمستوى اللي بعده؟'}</div>
-    <div class="claim">
-      ${isLast
-        ? `<button class="wa" id="waBtn">اطلب هديتك 🎁</button>
-           <button class="next" id="againBtn">إعادة من البداية</button>`
-        : `<button class="next" id="nextBtn">المستوى التالي ⏭️</button>
-           <button class="btn secondary" id="replayBtn">إعادة نفس المستوى</button>`}
-    </div>
-  `);
+function showWin(){
+  const isLast=levelIndex===LEVELS.length-1;
+  openOverlay(isLast?`
+  <h2>🎉 مبروك! خلّصت السبع مراحل!</h2>
+  <p>كسبت <b>توصيلة مجانية</b> من Fly Express 🚀</p>
+  <div class="claim">
+    <button class="wa" id="waBtn">اطلب هديتك 🎁</button>
+    <button class="next" id="againBtn">إعادة من البداية 🔁</button>
+  </div>
+  `:`
+  <h2>✅ خلّصت المستوى ${levelIndex+1}!</h2>
+  <p>جاهز للمستوى اللي بعده؟</p>
+  <div class="claim">
+    <button class="next" id="nextBtn">المستوى التالي ⏭️</button>
+    <button class="wa" id="replayBtn">إعادة نفس المستوى 🔄</button>
+  </div>`);
   if(isLast){
-    document.querySelector('#waBtn').addEventListener('click', ()=>{
-      const txt = encodeURIComponent(`مبروك ليّا! خلّصت الأربع مراحل في Memory Match — نتيجتي: ${score}. عايز أستلم التوصيلة المجانية.`);
-      window.open(`https://wa.me/${ADMIN_PHONE}?text=${txt}`,'_blank');
-    });
-    document.querySelector('#againBtn').addEventListener('click', ()=>{ levelIndex=0; applyLevel(); closeOverlay(); startGame(); });
+    document.querySelector('#waBtn').onclick=()=>window.open(`https://wa.me/${ADMIN_PHONE}?text=${encodeURIComponent('مبروك! خلصت السبع مراحل في لعبة Memory Match وكسبت توصيلة مجانية 🎉')}`,'_blank');
+    document.querySelector('#againBtn').onclick=()=>{levelIndex=0;applyLevel();closeOverlay();startGame();};
   }else{
-    document.querySelector('#nextBtn').addEventListener('click', ()=>{ levelIndex++; applyLevel(); closeOverlay(); startGame(); });
-    document.querySelector('#replayBtn').addEventListener('click', ()=>{ closeOverlay(); startGame(); });
+    document.querySelector('#nextBtn').onclick=()=>{levelIndex++;applyLevel();closeOverlay();startGame();};
+    document.querySelector('#replayBtn').onclick=()=>{closeOverlay();startGame();};
   }
 }
-
-/* شاشة إعادة المحاولة عند انتهاء الوقت */
 function showRetry(){
-  openOverlay(`
-    <div style="font-weight:900;font-size:22px;margin-bottom:6px">انتهى الوقت ⏳</div>
-    <div class="note">هنبدأ <b>نفس المستوى</b> من الصفر — جرّب تاني!</div>
-    <div class="claim">
-      <button class="btn" id="retryBtn">إعادة المحاولة</button>
-    </div>
-  `);
-  document.querySelector('#retryBtn').addEventListener('click', ()=>{ closeOverlay(); startGame(); });
+  openOverlay(`<h2>انتهى الوقت ⏳</h2>
+  <p>هترجع <b>للمستوى الأول</b> وتبدأ من جديد.</p>
+  <div class="claim"><button class="next" id="retryBtn">ابدأ من الأول 🔁</button></div>`);
+  document.querySelector('#retryBtn').onclick=()=>{levelIndex=0;applyLevel();closeOverlay();startGame();};
 }
 
-/* تطبيق إعدادات المستوى الحالي */
-function applyLevel(){
-  const L = LEVELS[levelIndex];
-  pairsCount = L.pairs; timeTotal = L.time;
-  setGridCols(pairsCount);
-  levelEl.textContent = (levelIndex+1);
-}
-
-/* بناء ورسم */
-function buildDeck(){
-  const chosen = shuffle([...EMOJIS]).slice(0, pairsCount);
-  deck = shuffle([...chosen, ...chosen]).map((sym,i)=>({id:i, sym, matched:false}));
-}
-function render(){
-  gridEl.innerHTML='';
-  deck.forEach(card=>{
-    const el = document.createElement('div');
-    el.className = 'card';
-    el.dataset.id = card.id;
-    el.innerHTML = `<div class="face front">?</div><div class="face back">${card.sym}</div>`;
-    gridEl.appendChild(el);
-  });
-}
-
-/* Flip */
+function buildDeck(){const chosen=shuffle([...EMOJIS]).slice(0,pairsCount);deck=shuffle([...chosen,...chosen]).map((sym,i)=>({id:i,sym,matched:false}));}
+function render(){gridEl.innerHTML='';deck.forEach(c=>{const el=document.createElement('div');el.className='card';el.dataset.id=c.id;el.innerHTML=`<div class="face front">?</div><div class="face back">${c.sym}</div>`;gridEl.appendChild(el);});}
 function flipCard(el){
-  if(lock) return;
-  const id = +el.dataset.id;
-  const card = deck.find(c=>c.id===id);
-  if(!card || card.matched || el.classList.contains('flipped')) return;
-
-  el.classList.add('flipped'); beep(700,.06,"square");
-
-  if(!first){
-    first = {el, card};
-  }else{
-    second = {el, card};
-    lock = true; moves++; movesEl.textContent=moves;
-
-    if(first.card.sym === second.card.sym){
-      first.card.matched = second.card.matched = true;
-      first.el.classList.add('matched'); second.el.classList.add('matched');
-      score += POINT_MATCH; scoreEl.textContent=score; matched++;
-      beep(980,.09,"sine");
-      [first,second]=[null,null]; lock=false;
-      if(matched === pairsCount) endGame(true);
+  if(lock)return;const id=+el.dataset.id,card=deck.find(c=>c.id===id);
+  if(!card||card.matched||el.classList.contains('flipped'))return;
+  el.classList.add('flipped');beep(700,.06,"square");
+  if(!first)first={el,card};else{
+    second={el,card};lock=true;moves++;movesEl.textContent=moves;
+    if(first.card.sym===second.card.sym){
+      first.card.matched=second.card.matched=true;first.el.classList.add('matched');second.el.classList.add('matched');
+      score+=POINT_MATCH;scoreEl.textContent=score;matched++;beep(980,.09,"sine");
+      [first,second]=[null,null];lock=false;if(matched===pairsCount)endGame(true);
     }else{
-      score = Math.max(0, score + POINT_WRONG); scoreEl.textContent=score;
-      setTimeout(()=>{
-        first.el.classList.remove('flipped');
-        second.el.classList.remove('flipped');
-        [first,second]=[null,null]; lock=false;
-      }, 650);
+      score=Math.max(0,score+POINT_WRONG);scoreEl.textContent=score;
+      setTimeout(()=>{first.el.classList.remove('flipped');second.el.classList.remove('flipped');[first,second]=[null,null];lock=false;},650);
     }
   }
 }
-
-/* بدء / نهاية */
 function startGame(){
-  score=0; moves=0; matched=0; timeLeft=timeTotal;
-  scoreEl.textContent=0; movesEl.textContent=0; timeEl.textContent=timeLeft;
-  finalEl.textContent=''; finalEl.className='result';
-  restartBtn.style.display='none';
-
-  buildDeck(); render();
-  gridEl.querySelectorAll('.card').forEach(el=> el.addEventListener('click', ()=>flipCard(el)));
-
+  score=0;moves=0;matched=0;timeLeft=timeTotal;
+  scoreEl.textContent=0;movesEl.textContent=0;timeEl.textContent=timeLeft;finalEl.textContent='';
+  buildDeck();render();
+  gridEl.querySelectorAll('.card').forEach(el=>el.onclick=()=>flipCard(el));
   clearInterval(timer);
-  timer = setInterval(()=>{
-    timeLeft--; timeEl.textContent=timeLeft;
-    if(timeLeft<=0) endGame(false);
-  }, 1000);
+  timer=setInterval(()=>{timeLeft--;timeEl.textContent=timeLeft;if(timeLeft<=0)endGame(false);},1000);
 }
 function endGame(win){
   clearInterval(timer);
-  restartBtn.style.display='inline-block';
   if(win){
-    best = Math.max(best, score); localStorage.setItem('mm_best', best); bestEl.textContent=best;
-    finalEl.textContent = `تمام! المستوى ${levelIndex+1} خلّص — نتيجتك: ${score}`;
-    finalEl.classList.add('win'); beep(660,.12,"sine"); setTimeout(()=>beep(990,.14,"sine"),120);
-    // لو آخر مستوى -> رسالة الجائزة، غير كده -> التالي
-    showStageWin();
+    best=Math.max(best,score);localStorage.setItem('mm_best',best);bestEl.textContent=best;
+    finalEl.textContent=`تمام! خلصت المستوى ${levelIndex+1} — نتيجتك: ${score}`;
+    finalEl.classList.add('win');showWin();
   }else{
-    finalEl.textContent = `انتهى الوقت — هنعيد نفس المستوى من الصفر.`;
-    finalEl.classList.add('lose'); beep(180,.14,"sawtooth");
-    // إعادة نفس المستوى (Reset) بدل الرجوع لأول
-    showRetry();
+    finalEl.textContent=`انتهى الوقت — رجعنا للمستوى الأول`;finalEl.classList.add('lose');showRetry();
   }
 }
 
-/* أزرار */
-startBtn.addEventListener('click', showLevelPicker);
-restartBtn.addEventListener('click', startGame);
-infoBtn.addEventListener('click', ()=>{
-  alert('اقلب بطاقتين وحاول تطابقهم. التطابق +100، الخطأ -10.\nخلص الأربع مراحل عشان تكسب توصيلة مجانية! لو الوقت خلص، هنعيد نفس المرحلة من البداية.');
-});
-
-/* init */
-applyLevel(); setGridCols(pairsCount);
+startBtn.onclick=()=>{applyLevel();startGame();};
+applyLevel();
 </script>
 </body>
 </html>
