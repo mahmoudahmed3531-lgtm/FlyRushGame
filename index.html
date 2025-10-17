@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Delivery Rush — Fly Express</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg1:#04121b; --bg2:#071e2c; --panel:rgba(255,255,255,.06);
+    --card:rgba(255,255,255,.08); --muted:#b8c0c9; --ok:#00ffaa; --bad:#ff5c7a; --acc:#00a8ff;
+  }
+  *{box-sizing:border-box; user-select:none}
+  html,body{height:100%}
+  body{
+    margin:0; font-family:'Cairo',system-ui,sans-serif; color:#eaf1f6;
+    background: radial-gradient(900px 500px at 15% 15%, #0b2738 0%, transparent 60%),
+                radial-gradient(900px 500px at 85% 85%, #05131d 0%, transparent 60%),
+                linear-gradient(160deg,var(--bg1),var(--bg2));
+    display:flex; align-items:center; justify-content:center; padding:16px;
+  }
+  .frame{
+    width:min(420px,96vw); background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07);
+    border-radius:22px; padding:14px; box-shadow:0 18px 50px rgba(0,0,0,.32);
+  }
+  h1{margin:0 0 6px; text-align:center; font-size:24px; font-weight:900}
+  .sub{color:#cfe2ee; text-align:center; margin-bottom:10px}
+
+  /* لوحة المعلومات */
+  .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:10px}
+  .stat{background:var(--panel); border:1px solid rgba(255,255,255,.07); border-radius:14px; text-align:center; padding:8px 6px}
+  .stat .v{font-weight:900; font-size:18px}
+  .stat .k{font-size:12px; color:var(--muted)}
+
+  /* منطقة اللعب */
+  .game{
+    position:relative; height:520px; border-radius:18px; overflow:hidden;
+    background: linear-gradient(#0a1d2a,#03131d);
+    border:1px solid rgba(255,255,255,.08); box-shadow: inset 0 8px 30px rgba(0,0,0,.45);
+  }
+  /* الطريق: 3 حارات */
+  .lane{position:absolute; top:0; bottom:0; width:33.3333%; border-left:1px dashed rgba(255,255,255,.08)}
+  .lane:nth-child(1){left:0}
+  .lane:nth-child(2){left:33.3333%}
+  .lane:nth-child(3){left:66.6666%; border-right:1px dashed rgba(255,255,255,.08)}
+
+  /* اللاعب */
+  .player{
+    position:absolute; bottom:14px; width:84px; height:84px; line-height:84px; text-align:center; font-size:44px;
+    transform:translateX(-50%); left:16.6666%; /* منتصف الحارة 1 */
+    border-radius:18px; background:radial-gradient(circle at 30% 30%, rgba(255,255,255,.2), rgba(255,255,255,.06));
+    border:1px solid rgba(255,255,255,.15); box-shadow:0 10px 24px rgba(0,0,0,.35);
+  }
+  .player.hit{animation:shake .2s ease}
+  @keyframes shake{0%,100%{transform:translateX(-50%)}33%{transform:translateX(-46%)}66%{transform:translateX(-54%)}}
+
+  /* العناصر المتساقطة */
+  .item{
+    position:absolute; top:-80px; width:70px; height:70px; line-height:70px; text-align:center; font-size:36px;
+    border-radius:16px; border:1px solid rgba(255,255,255,.15);
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.23), rgba(255,255,255,.05));
+    box-shadow:0 10px 24px rgba(0,0,0,.35);
+  }
+  .item.good{outline:2px solid rgba(0,255,170,.3)}
+  .item.coin{outline:2px solid rgba(0,168,255,.3)}
+  .item.bad{outline:2px solid rgba(255,92,122,.35)}
+
+  /* الأزرار */
+  .controls{display:flex; gap:10px; margin-top:10px}
+  .btn{
+    flex:1; padding:10px 14px; border-radius:999px; border:0; cursor:pointer; font-weight:900; font-size:16px;
+    background:linear-gradient(90deg,var(--ok),var(--acc)); color:#001316; box-shadow:0 10px 24px rgba(0,255,170,.25)
+  }
+  .btn.secondary{background:linear-gradient(90deg,#ffd3d3,#fff0b5); color:#3b0b0b}
+
+  /* نتيجة */
+  .final{margin-top:8px; text-align:center; font-weight:900}
+  .win{color:var(--ok)} .lose{color:var(--bad)}
+
+  /* شاشة البداية */
+  #overlay{position:absolute; inset:0; display:grid; place-items:center; background:rgba(0,0,0,.5)}
+  .start{
+    background:rgba(7,16,23,.96); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:16px; width:min(360px,92%);
+    text-align:center; box-shadow:0 24px 50px rgba(0,0,0,.45)
+  }
+  .start h2{margin:8px 0}
+  .start p{color:#cfe2ee; margin:8px 0}
+</style>
+</head>
+<body>
+  <div class="frame">
+    <h1>Delivery Rush — <span style="color:#21f5b3">Fly Express</span></h1>
+    <div class="sub">اجمع 📦 و💰 وتجنّب 🚗 و💣 — عندك <b>30 ثانية</b>!</div>
+
+    <div class="stats">
+      <div class="stat"><div class="v" id="time">30</div><div class="k">الوقت</div></div>
+      <div class="stat"><div class="v" id="score">0</div><div class="k">النقاط</div></div>
+      <div class="stat"><div class="v" id="best">0</div><div class="k">أعلى نتيجة</div></div>
+    </div>
+
+    <div class="game" id="game">
+      <div class="lane"></div><div class="lane"></div><div class="lane"></div>
+      <div class="player" id="player">🛵</div>
+
+      <div id="overlay">
+        <div class="start">
+          <h2>جاهز تنطلق؟</h2>
+          <p>اسحب يمين/شمال أو استخدم الأزرار للتحكم. اجمع <b>📦 +120</b> و <b>💰 +60</b> وتجنّب <b>🚗</b> و <b>💣 −150</b>.</p>
+          <button class="btn" id="startBtn">ابدأ السباق 🚀</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn secondary" id="leftBtn">◀️ يمين/شمال</button>
+      <button class="btn" id="rightBtn">▶️</button>
+    </div>
+
+    <div id="final" class="final"></div>
+  </div>
+
+<script>
+/* ====== أساسيات ====== */
+const LANE_X = [16.6666, 50, 83.3333]; // مراكز الحارات %
+const GAME_TIME = 30; // ثانية
+const WIN_AT = 2500;
+
+const scoreEl = document.querySelector('#score');
+const bestEl  = document.querySelector('#best');
+const timeEl  = document.querySelector('#time');
+const finalEl = document.querySelector('#final');
+const overlay = document.querySelector('#overlay');
+const gameEl  = document.querySelector('#game');
+const player  = document.querySelector('#player');
+const startBtn= document.querySelector('#startBtn');
+
+const leftBtn = document.querySelector('#leftBtn');
+const rightBtn= document.querySelector('#rightBtn');
+
+let lane = 0; // 0..2
+let items = [];
+let playing=false, timer=GAME_TIME, raf, spawnT;
+let score=0, best = +localStorage.getItem('rush_best')||0;
+bestEl.textContent = best;
+
+/* ====== صوتيات لطيفة (اختيارية) ====== */
+let AC, ctx, out;
+function initAudio(){
+  if(ctx) return;
+  AC = window.AudioContext || window.webkitAudioContext;
+  if(!AC) return;
+  ctx = new AC(); out = ctx.createGain(); out.gain.value=.15; out.connect(ctx.destination);
+}
+function beep(f=800,d=.08,t='square'){
+  if(!ctx) return;
+  const o=ctx.createOscillator(), g=ctx.createGain();
+  o.type=t; o.frequency.value=f; o.connect(g); g.connect(out);
+  const s=ctx.currentTime; g.gain.setValueAtTime(.0001,s);
+  g.gain.exponentialRampToValueAtTime(.6,s+.01);
+  g.gain.exponentialRampToValueAtTime(.0001,s+d);
+  o.start(s); o.stop(s+d+.02);
+}
+['pointerdown','touchstart','click'].forEach(ev=>addEventListener(ev,initAudio,{once:true}));
+
+/* ====== تحريك اللاعب ====== */
+function updatePlayer(){
+  player.style.left = LANE_X[lane] + '%';
+}
+function moveLeft(){ lane = Math.max(0, lane-1); updatePlayer(); }
+function moveRight(){ lane = Math.min(2, lane+1); updatePlayer(); }
+
+leftBtn.addEventListener('click', ()=>{ moveLeft(); beep(420,.05,'square'); });
+rightBtn.addEventListener('click',()=>{ moveRight(); beep(520,.05,'square'); });
+
+let touchStartX=0;
+gameEl.addEventListener('touchstart',e=>{ touchStartX=e.changedTouches[0].clientX; });
+gameEl.addEventListener('touchend',e=>{
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if(Math.abs(dx)>30){ dx>0 ? moveRight() : moveLeft(); }
+});
+
+/* ====== عناصر السقوط ====== */
+function createItem(){
+  const kinds = getKindRates(); // {good,coin,bad,car}
+  const r = Math.random();
+  let type='good', emoji='📦', val=120; // default
+  if(r<kinds.good){ type='good'; emoji='📦'; val=120; }
+  else if(r<kinds.good+kinds.coin){ type='coin'; emoji='💰'; val=60; }
+  else if(r<kinds.good+kinds.coin+kinds.bomb){ type='bad'; emoji='💣'; val=-150; }
+  else { type='car'; emoji='🚗'; val='hit'; }
+
+  const el = document.createElement('div');
+  el.className = `item ${type}`;
+  el.textContent = emoji;
+  const chooseLane = Math.floor(Math.random()*3);
+  el.dataset.lane = chooseLane;
+  el.dataset.type = type;
+  el.dataset.val  = val;
+  el.style.left = (LANE_X[chooseLane]-0.5* (100/3)) + '%'; // محاذاة داخل الحارة
+  el.style.transform = 'translateX(50%)';
+  gameEl.appendChild(el);
+  items.push({el, y:-80, lane:chooseLane, type, val});
+}
+
+function getKindRates(){
+  // صعوبة تدريجية حسب الوقت المتبقي
+  const p = 1 - (timer/GAME_TIME); // 0->1
+  return {
+    good: .30 - .05*p,
+    coin: .25 - .05*p,
+    bomb: .20 + .05*p,
+    car : .25 + .05*p
+  };
+}
+
+function speedNow(){
+  const p = 1 - (timer/GAME_TIME);
+  return 2.8 + p*2.2; // px/frame
+}
+function spawnDelayNow(){
+  const p = 1 - (timer/GAME_TIME);
+  return 600 - 260*p; // ms
+}
+
+/* ====== حلقة اللعب ====== */
+function step(){
+  if(!playing) return;
+  const spd = speedNow();
+
+  for(let i=items.length-1;i>=0;i--){
+    const it = items[i];
+    it.y += spd;
+    it.el.style.top = it.y + 'px';
+
+    // تصادم؟
+    if(it.lane===lane && it.y>gameEl.clientHeight-120 && it.y<gameEl.clientHeight-20){
+      collide(it);
+      // احذف العنصر بعد التصادم
+      it.el.remove(); items.splice(i,1); continue;
+    }
+    // خرج من الشاشة
+    if(it.y>gameEl.clientHeight+10){
+      it.el.remove(); items.splice(i,1);
+    }
+  }
+
+  raf = requestAnimationFrame(step);
+}
+
+function collide(it){
+  const t = it.type, v = it.val;
+  if(t==='good'){ score+=v; beep(880,.06,'square'); }
+  else if(t==='coin'){ score+=v; beep(660,.06,'triangle'); }
+  else if(t==='bad'){ score=Math.max(0,score+v); player.classList.add('hit'); beep(160,.12,'sawtooth'); setTimeout(()=>player.classList.remove('hit'),200); }
+  else if(t==='car'){ endGame(true); return; } // اصطدام سيارة = نهاية
+  scoreEl.textContent = score;
+}
+
+function spawnLoop(){
+  if(!playing) return;
+  createItem();
+  spawnT = setTimeout(spawnLoop, spawnDelayNow());
+}
+
+/* ====== بداية/نهاية ====== */
+function startGame(){
+  if(playing) return;
+  playing = true; timer=GAME_TIME; timeEl.textContent=timer;
+  score=0; scoreEl.textContent='0'; finalEl.textContent='';
+  items.forEach(i=>i.el.remove()); items=[];
+  lane=0; updatePlayer();
+  overlay.style.display='none';
+  spawnLoop();
+  step();
+
+  const iv = setInterval(()=>{
+    if(!playing){ clearInterval(iv); return; }
+    timer--; timeEl.textContent=timer;
+    if(timer<=0){ clearInterval(iv); endGame(false); }
+  },1000);
+}
+function endGame(hitCar){
+  playing=false; cancelAnimationFrame(raf); clearTimeout(spawnT);
+  best = Math.max(best, score); localStorage.setItem('rush_best', best); bestEl.textContent=best;
+
+  if(hitCar){
+    finalEl.textContent = `اصطدمت بسيارة! درجتك: ${score} — معلش حاول تاني 😂`;
+    finalEl.className = 'final lose';
+  } else if(score>=WIN_AT){
+    finalEl.textContent = `🎉 مبروك! خلصت السباق بدرجة ${score} — برافو!`;
+    finalEl.className = 'final win';
+  } else {
+    finalEl.textContent = `انتهى الوقت! درجتك: ${score} — معلش حاول تاني 😂`;
+    finalEl.className = 'final lose';
+  }
+  overlay.style.display='grid';
+}
+
+startBtn.addEventListener('click', startGame);
+</script>
+</body>
+</html>
