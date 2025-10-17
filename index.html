@@ -80,7 +80,7 @@
   .result{margin:12px 0 8px; text-align:center; font-weight:900}
   .result.win{color:var(--ok)} .result.lose{color:var(--bad)}
 
-  /* طبقة البداية/الفوز */
+  /* طبقة البداية/الفوز/إعادة المحاولة */
   #overlay{
     position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.5); backdrop-filter: blur(3px); z-index:30;
   }
@@ -102,7 +102,7 @@
 
 <div class="frame">
   <h1><span class="brand">Fly Express</span> — Memory Match</h1>
-  <div class="sub">طابق الكروت المتشابهة قبل ما الوقت يخلص! كل تطابق +100، خطأ −10. </div>
+  <div class="sub">**خلّص الأربع مراحل واكسب توصيلة مجانيّة** — طابق الكروت قبل ما الوقت يخلص! كل تطابق +100، خطأ −10.</div>
 
   <div class="stats">
     <div class="stat"><div class="v" id="level">1</div><div class="k">المستوى</div></div>
@@ -124,22 +124,20 @@
   <div class="note">نصيحة: راقب أماكن الإيموجيز بسرعة، كل ما تغلط أقل — نقاطك أعلى!</div>
 </div>
 
-<!-- شاشة المراحل / الفوز -->
+<!-- شاشة المراحل / الفوز / الإعادة -->
 <div id="overlay">
-  <div class="box" id="overlayBox">
-    <!-- يتم تبديله من الجافاسكربت -->
-  </div>
+  <div class="box" id="overlayBox"></div>
 </div>
 
 <script>
 /* ========== إعدادات عامة ========== */
 const LEVELS = [
-  {pairs:6,  time:20,  title:"سهل (6 أزواج)"},
+  {pairs:6,  time:30,  title:"سهل (6 أزواج)"},
   {pairs:8,  time:30,  title:"متوسط (8 أزواج)"},
-  {pairs:10, time:50,  title:"صعب (10 أزواج)"},
+  {pairs:10, time:40,  title:"صعب (10 أزواج)"},
   {pairs:12, time:50,  title:"خبير (12 زوج)"}
 ];
-const ADMIN_PHONE = "201017908076"; // رقم الواتساب للمطالبة بالجائزة
+const ADMIN_PHONE = "201017908076"; // رقم الواتساب للجائزة
 const EMOJIS = ["🌸","💖","🧁","🦋","🍓","🌈","🐱","⭐","🍉","🎀","🧸","☕","🍒","🐼","🌼","📦","💐","🍩","🐰","🫧","🌙","🍪"];
 const POINT_MATCH = 100, POINT_WRONG = -10;
 
@@ -159,7 +157,7 @@ const levelEl  = document.querySelector('#level');
 
 let best = parseInt(localStorage.getItem('mm_best')||'0'); bestEl.textContent = best;
 
-/* ========== صوتيات خفيفة (بعد أول تفاعل) ========== */
+/* ========== صوتيات بسيطة (بعد أول تفاعل) ========== */
 let ctx, AC, outGain;
 function audioInit(){ if(ctx) return; AC = window.AudioContext||window.webkitAudioContext; if(!AC) return;
   ctx = new AC(); outGain = ctx.createGain(); outGain.gain.value=.15; outGain.connect(ctx.destination);
@@ -187,13 +185,10 @@ function setGridCols(pairs){
   gridEl.classList.toggle('cols5', pairs>=10 && pairs<12);
   gridEl.classList.toggle('cols4', pairs<10);
 }
-function openOverlay(contentHTML){
-  overlayBox.innerHTML = contentHTML;
-  overlay.style.display='grid';
-}
+function openOverlay(html){ overlayBox.innerHTML=html; overlay.style.display='grid'; }
 function closeOverlay(){ overlay.style.display='none'; }
 
-/* شاشة اختيار المستوى أو مواصلة التالي */
+/* شاشة اختيار المستوى */
 function showLevelPicker(){
   const chips = LEVELS.map((L,i)=>`
     <div class="chip ${i===levelIndex?'active':''}" data-i="${i}">${L.title}</div>
@@ -202,7 +197,7 @@ function showLevelPicker(){
     <div style="font-weight:900;font-size:24px;margin-bottom:6px">اختر مستوى الصعوبة</div>
     <div class="opts" id="levelChips">${chips}</div>
     <button class="btn" id="goBtn">ابدأ اللعبة 🚀</button>
-    <div class="note">هتتسجل أعلى نتيجة على جهازك تلقائيًا.</div>
+    <div class="note">هتتسجل أعلى نتيجة تلقائيًا على جهازك.</div>
   `);
   document.querySelectorAll('#levelChips .chip').forEach(el=>{
     el.addEventListener('click', ()=>{
@@ -216,25 +211,42 @@ function showLevelPicker(){
   });
 }
 
-/* شاشة الفوز مع الجائزة + التالي */
-function showWinOverlay(){
-  const levelNo = levelIndex+1;
+/* شاشة الفوز في مرحلة */
+function showStageWin(){
+  const isLast = levelIndex === LEVELS.length-1;
   openOverlay(`
-    <div style="font-weight:900;font-size:24px;margin-bottom:6px">🎉 مبروك! خلّصت المستوى ${levelNo}</div>
-    <div class="note">نتيجتك: <b>${score}</b> — تقدر تطلب <b>توصيلة مجانية</b> من واتساب</div>
+    <div style="font-weight:900;font-size:24px;margin-bottom:8px">${isLast?'🎉 مبروك! خلّصت الأربع مراحل':'تمام! خلّصت المستوى '+(levelIndex+1)}</div>
+    <div class="note">${isLast ? 'كسبت توصيلة مجانيّة من Fly Express' : 'جاهز تكمل للمستوى اللي بعده؟'}</div>
     <div class="claim">
-      <button class="wa" id="waBtn">اطلب جائزتك 🎁</button>
-      ${levelIndex < LEVELS.length-1 ? `<button class="next" id="nextBtn">المستوى التالي ⏭️</button>` : ''}
-      <button class="btn secondary" id="replayBtn">إعادة نفس المستوى</button>
+      ${isLast
+        ? `<button class="wa" id="waBtn">اطلب هديتك 🎁</button>
+           <button class="next" id="againBtn">إعادة من البداية</button>`
+        : `<button class="next" id="nextBtn">المستوى التالي ⏭️</button>
+           <button class="btn secondary" id="replayBtn">إعادة نفس المستوى</button>`}
     </div>
   `);
-  document.querySelector('#waBtn').addEventListener('click', ()=>{
-    const txt = encodeURIComponent(`أنا كسبت توصيله مجانية في Memory Match — المستوى ${levelIndex+1} — نتيجتي: ${score}`);
-    window.open(`https://wa.me/${ADMIN_PHONE}?text=${txt}`,'_blank');
-  });
-  const nb = document.querySelector('#nextBtn');
-  if(nb){ nb.addEventListener('click', ()=>{ levelIndex++; applyLevel(); closeOverlay(); startGame(); }); }
-  document.querySelector('#replayBtn').addEventListener('click', ()=>{ closeOverlay(); startGame(); });
+  if(isLast){
+    document.querySelector('#waBtn').addEventListener('click', ()=>{
+      const txt = encodeURIComponent(`مبروك ليّا! خلّصت الأربع مراحل في Memory Match — نتيجتي: ${score}. عايز أستلم التوصيلة المجانية.`);
+      window.open(`https://wa.me/${ADMIN_PHONE}?text=${txt}`,'_blank');
+    });
+    document.querySelector('#againBtn').addEventListener('click', ()=>{ levelIndex=0; applyLevel(); closeOverlay(); startGame(); });
+  }else{
+    document.querySelector('#nextBtn').addEventListener('click', ()=>{ levelIndex++; applyLevel(); closeOverlay(); startGame(); });
+    document.querySelector('#replayBtn').addEventListener('click', ()=>{ closeOverlay(); startGame(); });
+  }
+}
+
+/* شاشة إعادة المحاولة عند انتهاء الوقت */
+function showRetry(){
+  openOverlay(`
+    <div style="font-weight:900;font-size:22px;margin-bottom:6px">انتهى الوقت ⏳</div>
+    <div class="note">هنبدأ <b>نفس المستوى</b> من الصفر — جرّب تاني!</div>
+    <div class="claim">
+      <button class="btn" id="retryBtn">إعادة المحاولة</button>
+    </div>
+  `);
+  document.querySelector('#retryBtn').addEventListener('click', ()=>{ closeOverlay(); startGame(); });
 }
 
 /* تطبيق إعدادات المستوى الحالي */
@@ -245,7 +257,7 @@ function applyLevel(){
   levelEl.textContent = (levelIndex+1);
 }
 
-/* بناء الدِك ورسمه */
+/* بناء ورسم */
 function buildDeck(){
   const chosen = shuffle([...EMOJIS]).slice(0, pairsCount);
   deck = shuffle([...chosen, ...chosen]).map((sym,i)=>({id:i, sym, matched:false}));
@@ -261,7 +273,7 @@ function render(){
   });
 }
 
-/* قلب كرت */
+/* Flip */
 function flipCard(el){
   if(lock) return;
   const id = +el.dataset.id;
@@ -317,10 +329,13 @@ function endGame(win){
     best = Math.max(best, score); localStorage.setItem('mm_best', best); bestEl.textContent=best;
     finalEl.textContent = `تمام! المستوى ${levelIndex+1} خلّص — نتيجتك: ${score}`;
     finalEl.classList.add('win'); beep(660,.12,"sine"); setTimeout(()=>beep(990,.14,"sine"),120);
-    showWinOverlay();
+    // لو آخر مستوى -> رسالة الجائزة، غير كده -> التالي
+    showStageWin();
   }else{
-    finalEl.textContent = `انتهى الوقت — نتيجتك: ${score}`;
+    finalEl.textContent = `انتهى الوقت — هنعيد نفس المستوى من الصفر.`;
     finalEl.classList.add('lose'); beep(180,.14,"sawtooth");
+    // إعادة نفس المستوى (Reset) بدل الرجوع لأول
+    showRetry();
   }
 }
 
@@ -328,10 +343,10 @@ function endGame(win){
 startBtn.addEventListener('click', showLevelPicker);
 restartBtn.addEventListener('click', startGame);
 infoBtn.addEventListener('click', ()=>{
-  alert('اقلب بطاقتين وحاول تطابقهم. التطابق +100، الخطأ -10. خلّص المستوى علشان تكسب توصيلة مجانية وتنتقل للمستوى التالي!');
+  alert('اقلب بطاقتين وحاول تطابقهم. التطابق +100، الخطأ -10.\nخلص الأربع مراحل عشان تكسب توصيلة مجانية! لو الوقت خلص، هنعيد نفس المرحلة من البداية.');
 });
 
-/* تهيئة أولية */
+/* init */
 applyLevel(); setGridCols(pairsCount);
 </script>
 </body>
