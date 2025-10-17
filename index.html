@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Memory Match — Fly Express</title>
+<title>Memory Match — Fly Express (Levels)</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -11,7 +11,6 @@
     --card: rgba(255,255,255,.08);
     --muted:#b8c0c9;
     --ok:#00ffaa;
-    --warn:#ffd166;
     --bad:#ff4d7a;
     --title:#60e9ff;
   }
@@ -30,7 +29,7 @@
   @keyframes hue{0%{filter:hue-rotate(0)}100%{filter:hue-rotate(360deg)}}
 
   .frame{
-    width:100%; max-width:860px; border-radius:24px; padding:22px;
+    width:100%; max-width:900px; border-radius:24px; padding:22px;
     background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
     box-shadow:0 18px 50px rgba(0,0,0,.28), inset 0 0 0 1px rgba(255,255,255,.05);
   }
@@ -40,11 +39,12 @@
 
   .stats{display:flex; gap:12px; justify-content:space-between; flex-wrap:wrap}
   .stat{
-    flex:1 1 160px; background:var(--glass); border:1px solid rgba(255,255,255,.08);
+    flex:1 1 150px; background:var(--glass); border:1px solid rgba(255,255,255,.08);
     padding:12px 14px; border-radius:16px; text-align:center; box-shadow:0 10px 24px rgba(0,0,0,.25);
   }
   .stat .v{font-size:22px; font-weight:900}
   .stat .k{font-size:13px; color:var(--muted)}
+
   .actions{display:flex; gap:12px; justify-content:center; margin:14px 0 4px}
   .btn{
     background:linear-gradient(90deg,#00ffaa,#7cc6ff); color:#001316; font-weight:900;
@@ -54,13 +54,12 @@
   .btn.secondary{background:linear-gradient(90deg,#d3f3ff,#b4ffd0); color:#003b35}
   .btn:active{transform:translateY(1px)}
 
-  /* اللوح */
   .board{margin-top:14px; background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.07);
     border-radius:18px; padding:16px;}
   .grid{display:grid; gap:12px; justify-items:center}
-  /* 4x4 على الموبايل، 5x4 على الشاشات الواسعة عند الصعب */
   .grid.cols4{grid-template-columns:repeat(4,1fr)}
   .grid.cols5{grid-template-columns:repeat(5,1fr)}
+  .grid.cols6{grid-template-columns:repeat(6,1fr)}
 
   .card{
     width:100%; max-width:120px; aspect-ratio:1/1.2; border-radius:16px; position:relative;
@@ -78,24 +77,25 @@
   .card.flipped .back{ transform:rotateY(0deg)}
   .card.matched{ filter:saturate(1.2) drop-shadow(0 0 10px rgba(0,255,170,.35))}
 
-  .result{margin:12px 0 4px; text-align:center; font-weight:900}
+  .result{margin:12px 0 8px; text-align:center; font-weight:900}
   .result.win{color:var(--ok)} .result.lose{color:var(--bad)}
 
-  /* طبقة البداية */
+  /* طبقة البداية/الفوز */
   #overlay{
     position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.5); backdrop-filter: blur(3px); z-index:30;
   }
-  .startBox{
-    background:rgba(10,20,28,.95); border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:22px; text-align:center;
-    box-shadow:0 24px 50px rgba(0,0,0,.45); width:min(460px,92vw);
+  .box{
+    background:rgba(10,20,28,.96); border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:22px; text-align:center;
+    box-shadow:0 24px 50px rgba(0,0,0,.45); width:min(520px,92vw);
   }
-  .opts{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:10px 0}
-  .chip{padding:8px 12px; border-radius:999px; border:1px solid rgba(255,255,255,.15); cursor:pointer}
+  .opts{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:12px 0}
+  .chip{padding:10px 14px; border-radius:999px; border:1px solid rgba(255,255,255,.15); cursor:pointer}
   .chip.active{background:#5eead4; color:#003; font-weight:900}
   .note{color:var(--muted); text-align:center; font-weight:700; margin-top:6px}
-  @media (max-width:520px){
-    .face{font-size:38px}
-  }
+  .claim{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:12px}
+  .wa{background:#25d366; color:#003; border:none; border-radius:999px; padding:10px 14px; font-weight:900; cursor:pointer}
+  .next{background:linear-gradient(90deg,#ffd166,#ff7eb3); color:#003; border:none; border-radius:999px; padding:10px 14px; font-weight:900; cursor:pointer}
+  @media (max-width:520px){ .face{font-size:38px} }
 </style>
 </head>
 <body>
@@ -105,6 +105,7 @@
   <div class="sub">طابق الكروت المتشابهة قبل ما الوقت يخلص! كل تطابق +100، خطأ −10. </div>
 
   <div class="stats">
+    <div class="stat"><div class="v" id="level">1</div><div class="k">المستوى</div></div>
     <div class="stat"><div class="v" id="time">60</div><div class="k">الوقت (ث)</div></div>
     <div class="stat"><div class="v" id="score">0</div><div class="k">النقاط</div></div>
     <div class="stat"><div class="v" id="moves">0</div><div class="k">المحاولات</div></div>
@@ -123,27 +124,26 @@
   <div class="note">نصيحة: راقب أماكن الإيموجيز بسرعة، كل ما تغلط أقل — نقاطك أعلى!</div>
 </div>
 
-<!-- شاشة اختيار الصعوبة -->
+<!-- شاشة المراحل / الفوز -->
 <div id="overlay">
-  <div class="startBox">
-    <div style="font-weight:900;font-size:22px;margin-bottom:6px">اختر مستوى الصعوبة</div>
-    <div class="opts">
-      <div class="chip active" data-pairs="6"  data-time="50">سهل (6 أزواج)</div>
-      <div class="chip"        data-pairs="8"  data-time="60">متوسط (8 أزواج)</div>
-      <div class="chip"        data-pairs="10" data-time="75">صعب (10 أزواج)</div>
-    </div>
-    <button class="btn" id="goBtn">ابدأ اللعبة 🚀</button>
-    <div class="note">هتتسجل أعلى نتيجة على جهازك تلقائيًا.</div>
+  <div class="box" id="overlayBox">
+    <!-- يتم تبديله من الجافاسكربت -->
   </div>
 </div>
 
 <script>
-/* ===== بيانات أساسية ===== */
-const EMOJIS = ["🌸","💖","🧁","🦋","🍓","🌈","🐱","⭐","🍉","🎀","🧸","☕","🍒","🐼","🌼","📦","💐","🍩"];
+/* ========== إعدادات عامة ========== */
+const LEVELS = [
+  {pairs:6,  time:20,  title:"سهل (6 أزواج)"},
+  {pairs:8,  time:30,  title:"متوسط (8 أزواج)"},
+  {pairs:10, time:50,  title:"صعب (10 أزواج)"},
+  {pairs:12, time:50,  title:"خبير (12 زوج)"}
+];
+const ADMIN_PHONE = "201017908076"; // رقم الواتساب للمطالبة بالجائزة
+const EMOJIS = ["🌸","💖","🧁","🦋","🍓","🌈","🐱","⭐","🍉","🎀","🧸","☕","🍒","🐼","🌼","📦","💐","🍩","🐰","🫧","🌙","🍪"];
 const POINT_MATCH = 100, POINT_WRONG = -10;
-let pairsCount = 6, timeTotal = 50;
 
-/* ===== عناصر DOM ===== */
+/* ========== DOM ========== */
 const gridEl   = document.querySelector('#grid');
 const scoreEl  = document.querySelector('#score');
 const movesEl  = document.querySelector('#moves');
@@ -154,12 +154,12 @@ const startBtn = document.querySelector('#startBtn');
 const restartBtn = document.querySelector('#restartBtn');
 const infoBtn  = document.querySelector('#infoBtn');
 const overlay  = document.querySelector('#overlay');
-const goBtn    = document.querySelector('#goBtn');
-const chips    = [...document.querySelectorAll('.chip')];
+const overlayBox = document.querySelector('#overlayBox');
+const levelEl  = document.querySelector('#level');
 
 let best = parseInt(localStorage.getItem('mm_best')||'0'); bestEl.textContent = best;
 
-/* ===== صوتيات خفيفة (بعد أول تفاعل) ===== */
+/* ========== صوتيات خفيفة (بعد أول تفاعل) ========== */
 let ctx, AC, outGain;
 function audioInit(){ if(ctx) return; AC = window.AudioContext||window.webkitAudioContext; if(!AC) return;
   ctx = new AC(); outGain = ctx.createGain(); outGain.gain.value=.15; outGain.connect(ctx.destination);
@@ -174,54 +174,109 @@ function beep(f=800,d=.08,t="triangle"){ if(!ctx) return;
 }
 ["pointerdown","touchstart","click"].forEach(e=>addEventListener(e,audioInit,{once:true}));
 
-/* ===== حالة اللعبة ===== */
+/* ========== حالة اللعبة ========== */
+let levelIndex = 0;
+let pairsCount = LEVELS[0].pairs, timeTotal = LEVELS[0].time;
 let deck=[], first=null, second=null, lock=false;
 let score=0, moves=0, timeLeft=0, timer=null, matched=0;
 
-/* ===== أدوات ===== */
+/* ========== أدوات ========== */
 const shuffle = a => a.sort(()=>Math.random()-0.5);
+function setGridCols(pairs){
+  gridEl.classList.toggle('cols6', pairs>=12);
+  gridEl.classList.toggle('cols5', pairs>=10 && pairs<12);
+  gridEl.classList.toggle('cols4', pairs<10);
+}
+function openOverlay(contentHTML){
+  overlayBox.innerHTML = contentHTML;
+  overlay.style.display='grid';
+}
+function closeOverlay(){ overlay.style.display='none'; }
 
-/* إنشاء الدك حسب عدد الأزواج */
+/* شاشة اختيار المستوى أو مواصلة التالي */
+function showLevelPicker(){
+  const chips = LEVELS.map((L,i)=>`
+    <div class="chip ${i===levelIndex?'active':''}" data-i="${i}">${L.title}</div>
+  `).join('');
+  openOverlay(`
+    <div style="font-weight:900;font-size:24px;margin-bottom:6px">اختر مستوى الصعوبة</div>
+    <div class="opts" id="levelChips">${chips}</div>
+    <button class="btn" id="goBtn">ابدأ اللعبة 🚀</button>
+    <div class="note">هتتسجل أعلى نتيجة على جهازك تلقائيًا.</div>
+  `);
+  document.querySelectorAll('#levelChips .chip').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      document.querySelectorAll('#levelChips .chip').forEach(x=>x.classList.remove('active'));
+      el.classList.add('active');
+      levelIndex = +el.dataset.i;
+    });
+  });
+  document.querySelector('#goBtn').addEventListener('click', ()=>{
+    closeOverlay(); applyLevel(); startGame();
+  });
+}
+
+/* شاشة الفوز مع الجائزة + التالي */
+function showWinOverlay(){
+  const levelNo = levelIndex+1;
+  openOverlay(`
+    <div style="font-weight:900;font-size:24px;margin-bottom:6px">🎉 مبروك! خلّصت المستوى ${levelNo}</div>
+    <div class="note">نتيجتك: <b>${score}</b> — تقدر تطلب <b>توصيلة مجانية</b> من واتساب</div>
+    <div class="claim">
+      <button class="wa" id="waBtn">اطلب جائزتك 🎁</button>
+      ${levelIndex < LEVELS.length-1 ? `<button class="next" id="nextBtn">المستوى التالي ⏭️</button>` : ''}
+      <button class="btn secondary" id="replayBtn">إعادة نفس المستوى</button>
+    </div>
+  `);
+  document.querySelector('#waBtn').addEventListener('click', ()=>{
+    const txt = encodeURIComponent(`أنا كسبت توصيله مجانية في Memory Match — المستوى ${levelIndex+1} — نتيجتي: ${score}`);
+    window.open(`https://wa.me/${ADMIN_PHONE}?text=${txt}`,'_blank');
+  });
+  const nb = document.querySelector('#nextBtn');
+  if(nb){ nb.addEventListener('click', ()=>{ levelIndex++; applyLevel(); closeOverlay(); startGame(); }); }
+  document.querySelector('#replayBtn').addEventListener('click', ()=>{ closeOverlay(); startGame(); });
+}
+
+/* تطبيق إعدادات المستوى الحالي */
+function applyLevel(){
+  const L = LEVELS[levelIndex];
+  pairsCount = L.pairs; timeTotal = L.time;
+  setGridCols(pairsCount);
+  levelEl.textContent = (levelIndex+1);
+}
+
+/* بناء الدِك ورسمه */
 function buildDeck(){
   const chosen = shuffle([...EMOJIS]).slice(0, pairsCount);
   deck = shuffle([...chosen, ...chosen]).map((sym,i)=>({id:i, sym, matched:false}));
-  // الأعمدة: 4 للغالبية، ولو 10 أزواج نخليه 5
-  gridEl.classList.toggle('cols5', pairsCount>=10);
-  gridEl.classList.toggle('cols4', pairsCount<10);
 }
-
-/* رسم الكروت */
 function render(){
   gridEl.innerHTML='';
   deck.forEach(card=>{
     const el = document.createElement('div');
     el.className = 'card';
     el.dataset.id = card.id;
-    el.innerHTML = `
-      <div class="face front">?</div>
-      <div class="face back">${card.sym}</div>
-    `;
+    el.innerHTML = `<div class="face front">?</div><div class="face back">${card.sym}</div>`;
     gridEl.appendChild(el);
   });
 }
 
-/* قلب كارت */
+/* قلب كرت */
 function flipCard(el){
   if(lock) return;
   const id = +el.dataset.id;
   const card = deck.find(c=>c.id===id);
-  if(!card || card.matched) return;
+  if(!card || card.matched || el.classList.contains('flipped')) return;
 
   el.classList.add('flipped'); beep(700,.06,"square");
 
   if(!first){
     first = {el, card};
-  }else if(el!==first.el){
+  }else{
     second = {el, card};
     lock = true; moves++; movesEl.textContent=moves;
 
     if(first.card.sym === second.card.sym){
-      // ماتش
       first.card.matched = second.card.matched = true;
       first.el.classList.add('matched'); second.el.classList.add('matched');
       score += POINT_MATCH; scoreEl.textContent=score; matched++;
@@ -229,7 +284,6 @@ function flipCard(el){
       [first,second]=[null,null]; lock=false;
       if(matched === pairsCount) endGame(true);
     }else{
-      // خطأ
       score = Math.max(0, score + POINT_WRONG); scoreEl.textContent=score;
       setTimeout(()=>{
         first.el.classList.remove('flipped');
@@ -240,7 +294,7 @@ function flipCard(el){
   }
 }
 
-/* بدء */
+/* بدء / نهاية */
 function startGame(){
   score=0; moves=0; matched=0; timeLeft=timeTotal;
   scoreEl.textContent=0; movesEl.textContent=0; timeEl.textContent=timeLeft;
@@ -248,11 +302,7 @@ function startGame(){
   restartBtn.style.display='none';
 
   buildDeck(); render();
-
-  // ربط الكروت
-  gridEl.querySelectorAll('.card').forEach(el=>{
-    el.addEventListener('click', ()=> flipCard(el));
-  });
+  gridEl.querySelectorAll('.card').forEach(el=> el.addEventListener('click', ()=>flipCard(el)));
 
   clearInterval(timer);
   timer = setInterval(()=>{
@@ -260,42 +310,29 @@ function startGame(){
     if(timeLeft<=0) endGame(false);
   }, 1000);
 }
-
-/* نهاية */
 function endGame(win){
   clearInterval(timer);
   restartBtn.style.display='inline-block';
   if(win){
-    best = Math.max(best, score);
-    localStorage.setItem('mm_best', best); bestEl.textContent=best;
-    finalEl.textContent = `🎉 مبروك! خلّصت كله — نتيجتك: ${score}`;
+    best = Math.max(best, score); localStorage.setItem('mm_best', best); bestEl.textContent=best;
+    finalEl.textContent = `تمام! المستوى ${levelIndex+1} خلّص — نتيجتك: ${score}`;
     finalEl.classList.add('win'); beep(660,.12,"sine"); setTimeout(()=>beep(990,.14,"sine"),120);
+    showWinOverlay();
   }else{
-    finalEl.textContent = `انتهى الوقت — نتيجتك: ${score} 🙈`;
+    finalEl.textContent = `انتهى الوقت — نتيجتك: ${score}`;
     finalEl.classList.add('lose'); beep(180,.14,"sawtooth");
   }
 }
 
-/* واجهة */
-startBtn.addEventListener('click', ()=>{
-  overlay.style.display='grid';
-});
+/* أزرار */
+startBtn.addEventListener('click', showLevelPicker);
 restartBtn.addEventListener('click', startGame);
-goBtn.addEventListener('click', ()=>{
-  overlay.style.display='none';
-  startGame();
-});
-chips.forEach(ch=>{
-  ch.addEventListener('click', ()=>{
-    chips.forEach(x=>x.classList.remove('active'));
-    ch.classList.add('active');
-    pairsCount = +ch.dataset.pairs;
-    timeTotal  = +ch.dataset.time;
-  });
-});
 infoBtn.addEventListener('click', ()=>{
-  alert('اقلب بطاقتين في كل مرة وحاول تفتكر أماكنهم. التطابق +100، الخطأ -10. اختَر الصعوبة وحقق أعلى نتيجة!');
+  alert('اقلب بطاقتين وحاول تطابقهم. التطابق +100، الخطأ -10. خلّص المستوى علشان تكسب توصيلة مجانية وتنتقل للمستوى التالي!');
 });
+
+/* تهيئة أولية */
+applyLevel(); setGridCols(pairsCount);
 </script>
 </body>
 </html>
